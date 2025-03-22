@@ -4,7 +4,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 // Can change to cover test cases for bugged program
-public final class RoamingMap<K extends Comparable<K>, V> extends TreeMap<K, V> {
+public class RoamingMap<K extends Comparable<K>, V> extends TreeMap<K, V> {
 
 	private final Map<K, V> map;
 
