@@ -26,7 +26,7 @@ public class Barricade {
 		if (!Objects.equals(entrySetBefore, entrySetAfter)) {
 			throw new RuntimeException("get method of RoamingMap operated incorrectly");
 		}
-		if (Objects.equals(prevValue, value)) {
+		if (!Objects.equals(prevValue, value)) {
 			logger.log(Level.WARNING,
 				"get method of RoamingMap returned incorrect value; correct value was used instead");
 			return new StateRecoveryOptional<>(prevValue, null);

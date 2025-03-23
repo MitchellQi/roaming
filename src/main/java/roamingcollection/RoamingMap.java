@@ -14,16 +14,27 @@ public final class RoamingMap<K extends Comparable<K>, V> implements NavigableMa
 
 	private final NavigableMap<K, V> internalMap;
 
+	// Default constructor
 	public RoamingMap() {
 		this.internalMap = new TreeMap<>();
 	}
 
+	// Constructor that accepts a Map for initialization
 	public RoamingMap(Map<? extends K, ? extends V> m) {
 		this.internalMap = new TreeMap<>();
 		putAll(m);
 	}
 
-	// Core Map methods
+	// Injection constructor: used for testing to inject a custom NavigableMap implementation.
+	public RoamingMap(NavigableMap<K, V> customMap, boolean injection) {
+		if (!injection) {
+			throw new IllegalArgumentException(
+				"Injection flag must be true when using this constructor.");
+		}
+		this.internalMap = Objects.requireNonNull(customMap, "customMap must not be null");
+	}
+
+// -------------------------- Core Map methods --------------------------
 
 	@Override
 	public V put(K key, V value) {
@@ -58,7 +69,7 @@ public final class RoamingMap<K extends Comparable<K>, V> implements NavigableMa
 		return internalMap.toString();
 	}
 
-	// Remaining Map interface methods
+// -------------------------- Remaining Map interface methods --------------------------
 
 	@Override
 	public V remove(Object key) {
@@ -96,7 +107,7 @@ public final class RoamingMap<K extends Comparable<K>, V> implements NavigableMa
 		return internalMap.values();
 	}
 
-	// NavigableMap methods
+// -------------------------- NavigableMap methods --------------------------
 
 	@Override
 	public K lowerKey(K key) {
@@ -217,5 +228,4 @@ public final class RoamingMap<K extends Comparable<K>, V> implements NavigableMa
 	public K lastKey() {
 		return internalMap.lastKey();
 	}
-
 }

@@ -1,6 +1,7 @@
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Function;
+import roamingcollection.RoamingMap;
 
 // May contain bug(s)
 public final class MatrixMap<T> {
