@@ -17,132 +17,144 @@ import roamingcollection.RoamingMap;
 
 public class BarricadeTest {
 
-	// Use provided LoggerTestingHandler
-	private LoggerTestingHandler handler;
+	// Test logger handler for capturing log messages
+	private TestLoggerHandler logHandler;
 
 	@Before
 	public void setUp() {
-		handler = new LoggerTestingHandler();
+		logHandler = new TestLoggerHandler();
 		Logger logger = Logger.getLogger(Barricade.class.getName());
-		logger.addHandler(handler);
-		handler.clearLogRecords();
+		logger.addHandler(logHandler);
+		logHandler.clearLogRecords();
 	}
 
-	// =================== getWithStateVar Tests ===================
+	// ==================== getWithStateVar Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testGetWithStateVar_NullMap() {
 		Barricade.getWithStateVar(null, "key");
 	}
 
+	// Edge Case: Null key should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testGetWithStateVar_NullKey() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		Barricade.getWithStateVar(map, null);
 	}
 
+	// Code Coverage: Normal branch of getWithStateVar without mismatches.
 	@Test
-	public void testGetWithStateVar_NormalBranch() {
+	public void testGetWithStateVar_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		map.put("keyNormal", "valueNormal");
 		Barricade.StateRecoveryOptional<String> result = Barricade.getWithStateVar(map, "keyNormal");
 		assertEquals("valueNormal", result.value());
-		assertFalse("Warning should not be logged", handler.getLastLog().isPresent());
+		assertFalse("No warning should be logged", logHandler.getLastLog().isPresent());
 	}
 
+	// Mismatch: get() returns incorrect value, so fallback to copy value.
 	@Test
-	public void testGetWithStateVar_WarningBranch() {
-		// Use FaultyGetMap to simulate get() error (returns null) while the copy has the correct value.
+	public void testGetWithStateVar_ValueMismatch() {
 		FaultyGetMap faultyMap = new FaultyGetMap();
 		faultyMap.put("keyWarning", "valueWarning");
 		RoamingMap<String, String> map = new RoamingMap<>(faultyMap, true);
 		Barricade.StateRecoveryOptional<String> result = Barricade.getWithStateVar(map, "keyWarning");
 		// Although get() returns null, the copy contains "valueWarning".
 		assertEquals("valueWarning", result.value());
-		Optional<String> log = handler.getLastLog();
+		Optional<String> log = logHandler.getLastLog();
 		assertTrue("Warning should be logged", log.isPresent());
 		assertEquals(
 			"get method of RoamingMap returned incorrect value; correct value was used instead",
 			log.get());
 	}
 
+	// Edge Case / Mismatch: EntrySet mismatch should throw RuntimeException.
 	@Test(expected = RuntimeException.class)
 	public void testGetWithStateVar_EntrySetMismatch() {
-		// Use NonMatchingEntrySetMap to simulate mismatch in entrySet() results.
-		NonMatchingEntrySetMap mismatchMap = new NonMatchingEntrySetMap();
+		MismatchEntrySetMap mismatchMap = new MismatchEntrySetMap();
 		mismatchMap.put("keyMismatch", "valueMismatch");
 		RoamingMap<String, String> map = new RoamingMap<>(mismatchMap, true);
 		Barricade.getWithStateVar(map, "keyMismatch");
 	}
 
-	// =================== correctSize Tests ===================
+	// ==================== correctSize Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testCorrectSize_NullMap() {
 		Barricade.correctSize(null);
 	}
 
+	// Code Coverage: Normal branch of correctSize.
 	@Test
-	public void testCorrectSize_NormalBranch() {
+	public void testCorrectSize_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		map.put("a", "1");
 		int size = Barricade.correctSize(map);
 		assertEquals(map.size(), size);
-		assertFalse("Warning should not be logged", handler.getLastLog().isPresent());
+		assertFalse("No warning should be logged", logHandler.getLastLog().isPresent());
 	}
 
+	// Mismatch: size() returns inconsistent value, so correctSize returns the mismatched size.
 	@Test
-	public void testCorrectSize_WarningBranch() {
+	public void testCorrectSize_SizeMismatch() {
 		FaultySizeMap faultyMap = new FaultySizeMap();
 		faultyMap.put("b", "2");
 		RoamingMap<String, String> map = new RoamingMap<>(faultyMap, true);
 		int size = Barricade.correctSize(map);
-		int expectedSize = 2;  // first call returns 1, second returns 2
+		int expectedSize = 2;  // First call returns normal size, second call returns size+1.
 		assertEquals(expectedSize, size);
-		Optional<String> log = handler.getLastLog();
+		Optional<String> log = logHandler.getLastLog();
 		assertTrue("Warning should be logged", log.isPresent());
 		assertEquals(
 			"size method of RoamingMap returned incorrect value; correct value was used instead",
 			log.get());
 	}
 
+	// Edge Case / Mismatch: EntrySet mismatch should throw RuntimeException.
 	@Test(expected = RuntimeException.class)
 	public void testCorrectSize_EntrySetMismatch() {
-		NonMatchingEntrySetMap mismatchMap = new NonMatchingEntrySetMap();
+		MismatchEntrySetMap mismatchMap = new MismatchEntrySetMap();
 		mismatchMap.put("keyMismatchSize", "3");
 		RoamingMap<String, String> map = new RoamingMap<>(mismatchMap, true);
 		Barricade.correctSize(map);
 	}
 
-	// =================== putWithStateVar Tests ===================
+	// ==================== putWithStateVar Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testPutWithStateVar_NullMap() {
 		Barricade.putWithStateVar(null, "key", "value");
 	}
 
+	// Edge Case: Null key should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testPutWithStateVar_NullKey() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		Barricade.putWithStateVar(map, null, "value");
 	}
 
+	// Edge Case: Null value should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testPutWithStateVar_NullValue() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		Barricade.putWithStateVar(map, "key", null);
 	}
 
+	// Code Coverage: Normal branch of putWithStateVar.
 	@Test
-	public void testPutWithStateVar_NormalBranch() {
+	public void testPutWithStateVar_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		Barricade.StateRecoveryOptional<String> result = Barricade.putWithStateVar(map, "keyPut",
 			"newValue");
 		assertNull(result.value());
 		assertEquals("newValue", map.get("keyPut"));
-		assertFalse("Warning should not be logged", handler.getLastLog().isPresent());
+		assertFalse("No warning should be logged", logHandler.getLastLog().isPresent());
 	}
 
+	// Mismatch: Inconsistent value update should throw RuntimeException.
 	@Test(expected = RuntimeException.class)
 	public void testPutWithStateVar_ValueMismatch() {
 		RandomValueMap randomMap = new RandomValueMap();
@@ -151,22 +163,24 @@ public class BarricadeTest {
 		Barricade.putWithStateVar(map, "key", "newValue");
 	}
 
+	// Edge Case / Mismatch: EntrySet mismatch should throw RuntimeException.
 	@Test(expected = RuntimeException.class)
 	public void testPutWithStateVar_EntrySetMismatch() {
-		ControlledInconsistentMap controlledMap = new ControlledInconsistentMap();
+		ControlledMismatchMap controlledMap = new ControlledMismatchMap();
 		controlledMap.put("key", "oldValue"); // initial value
 		RoamingMap<String, String> map = new RoamingMap<>(controlledMap, true);
-
 		Barricade.putWithStateVar(map, "key", "newValue");
 	}
 
-	// =================== correctKeySet Tests ===================
+	// ==================== correctKeySet Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testCorrectKeySet_NullMap() {
 		Barricade.correctKeySet(null);
 	}
 
+	// Code Coverage: Normal branch of correctKeySet.
 	@Test
 	public void testCorrectKeySet_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
@@ -178,17 +192,19 @@ public class BarricadeTest {
 			keySet.add("newKey");
 			fail("Expected UnsupportedOperationException");
 		} catch (UnsupportedOperationException e) {
-			// Expected exception
+			// Expected exception.
 		}
 	}
 
-	// =================== correctEntrySet Tests ===================
+	// ==================== correctEntrySet Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testCorrectEntrySet_NullMap() {
 		Barricade.correctEntrySet(null);
 	}
 
+	// Code Coverage: Normal branch of correctEntrySet.
 	@Test
 	public void testCorrectEntrySet_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
@@ -199,52 +215,86 @@ public class BarricadeTest {
 			entrySet.clear();
 			fail("Expected UnsupportedOperationException");
 		} catch (UnsupportedOperationException e) {
-			// Expected exception
+			// Expected exception.
 		}
 	}
 
-	// =================== correctStringRepresentation Tests ===================
+	// ==================== correctStringRepresentation Tests ====================
 
+	// Edge Case: Null map should throw NullPointerException.
 	@Test(expected = NullPointerException.class)
 	public void testCorrectStringRepresentation_NullMap() {
 		Barricade.correctStringRepresentation(null);
 	}
 
+	// Code Coverage: Normal branch of correctStringRepresentation.
 	@Test
-	public void testCorrectStringRepresentation_NormalBranch() {
+	public void testCorrectStringRepresentation_Normal() {
 		RoamingMap<String, String> map = new RoamingMap<>();
 		map.put("a", "b");
 		String rep = Barricade.correctStringRepresentation(map);
 		String expected = new TreeMap<>(map).toString();
 		assertEquals(expected, rep);
-		assertFalse("Warning should not be logged", handler.getLastLog().isPresent());
+		assertFalse("No warning should be logged", logHandler.getLastLog().isPresent());
 	}
 
+	// Mismatch: Incorrect toString() result triggers warning.
 	@Test
-	public void testCorrectStringRepresentation_WarningBranch() {
+	public void testCorrectStringRepresentation_StringMismatch() {
 		FaultyToStringMap faultyMap = new FaultyToStringMap();
 		faultyMap.put("keyFaulty", "valFaulty");
 		RoamingMap<String, String> map = new RoamingMap<>(faultyMap, true);
 		String rep = Barricade.correctStringRepresentation(map);
 		assertEquals("faulty", rep);
-		Optional<String> log = handler.getLastLog();
+		Optional<String> log = logHandler.getLastLog();
 		assertTrue("Warning should be logged", log.isPresent());
 		assertEquals(
 			"toString method of RoamingMap returned incorrect value; correct value was used instead",
 			log.get());
 	}
 
+	// Edge Case / Mismatch: EntrySet mismatch in toString should throw RuntimeException.
 	@Test(expected = RuntimeException.class)
 	public void testCorrectStringRepresentation_EntrySetMismatch() {
-		NonMatchingEntrySetMap mismatchMap = new NonMatchingEntrySetMap();
+		MismatchEntrySetMap mismatchMap = new MismatchEntrySetMap();
 		mismatchMap.put("keyMismatchStr", "valMismatchStr");
 		RoamingMap<String, String> map = new RoamingMap<>(mismatchMap, true);
 		Barricade.correctStringRepresentation(map);
 	}
 
-	// =================== Helper Classes ===================
+	// ==================== Helper Classes ====================
 
-	// FaultyGetMap: simulate get() error by returning null if value exists.
+	// Logger handler for capturing log output in tests.
+	static class TestLoggerHandler extends java.util.logging.Handler {
+
+		private final java.util.List<String> logs = new java.util.ArrayList<>();
+
+		@Override
+		public void publish(java.util.logging.LogRecord record) {
+			logs.add(record.getMessage());
+		}
+
+		@Override
+		public void flush() {
+		}
+
+		@Override
+		public void close() throws SecurityException {
+		}
+
+		public Optional<String> getLastLog() {
+			if (logs.isEmpty()) {
+				return Optional.empty();
+			}
+			return Optional.of(logs.get(logs.size() - 1));
+		}
+
+		public void clearLogRecords() {
+			logs.clear();
+		}
+	}
+
+	// Helper class: FaultyGetMap simulates a get() error by returning null if the value exists.
 	static class FaultyGetMap extends TreeMap<String, String> {
 
 		@Override
@@ -254,7 +304,7 @@ public class BarricadeTest {
 		}
 	}
 
-	// FaultySizeMap: simulate size() error; first call returns normal size, second returns size+1.
+	// Helper class: FaultySizeMap simulates a size() error; first call returns normal size, second returns size+1.
 	static class FaultySizeMap extends TreeMap<String, String> {
 
 		private int callCount = 0;
@@ -272,7 +322,7 @@ public class BarricadeTest {
 		}
 	}
 
-	// FaultyToStringMap: simulate toString() error by always returning "faulty".
+	// Helper class: FaultyToStringMap simulates a toString() error by always returning "faulty".
 	static class FaultyToStringMap extends TreeMap<String, String> {
 
 		@Override
@@ -281,8 +331,8 @@ public class BarricadeTest {
 		}
 	}
 
-	// NonMatchingEntrySetMap: always returns a different entry set to simulate mismatch.
-	static class NonMatchingEntrySetMap extends TreeMap<String, String> {
+	// Helper class: MismatchEntrySetMap always returns a different entry set to simulate a mismatch.
+	static class MismatchEntrySetMap extends TreeMap<String, String> {
 
 		private int callCount = 0;
 
@@ -295,21 +345,19 @@ public class BarricadeTest {
 		}
 	}
 
-	// Helper class: RandomValueMap
-// When a key-value pair is put in, it stores a random value instead of the provided one.
+	// Helper class: RandomValueMap stores a random value instead of the provided one.
 	static class RandomValueMap extends TreeMap<String, String> {
 
 		@Override
 		public String put(String key, String value) {
-			// Instead of storing the provided value, store a random value.
 			String randomValue = String.valueOf(Math.random());
 			return super.put(key, randomValue);
 		}
 	}
 
-	// ControlledInconsistentMap returns a consistent entry set for the first two calls,
-// then returns an inconsistent one (by adding a dummy entry) on later calls.
-	static class ControlledInconsistentMap extends TreeMap<String, String> {
+	// Helper class: ControlledMismatchMap returns a consistent entry set for the first two calls,
+	// then returns an inconsistent one (by adding a dummy entry) on later calls.
+	static class ControlledMismatchMap extends TreeMap<String, String> {
 
 		private int entrySetCallCount = 0;
 		private Set<Map.Entry<String, String>> consistentSet = null;
@@ -319,21 +367,14 @@ public class BarricadeTest {
 			entrySetCallCount++;
 			if (entrySetCallCount <= 2) {
 				if (consistentSet == null) {
-					// Cache a copy of the current entry set for consistency.
 					consistentSet = new HashSet<>(super.entrySet());
 				}
 				return consistentSet;
 			} else {
-				// On the third (or later) call, return a modified set that is different.
 				Set<Map.Entry<String, String>> modified = new HashSet<>(super.entrySet());
 				modified.add(new AbstractMap.SimpleEntry<>("dummy", "dummy"));
 				return modified;
 			}
 		}
 	}
-
-
 }
-
-
-
